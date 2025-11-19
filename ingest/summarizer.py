@@ -17,8 +17,8 @@ MODEL_NAME = "facebook/bart-large-cnn"
 _BASE_DIR = Path(__file__).resolve().parent
 _env_cache = os.getenv("TRANSFORMERS_CACHE")
 print(_env_cache)
-cache_path = Path(_env_cache).expanduser() if _env_cache else ("/home/christianfita/NewsFeeder-IA/models/transformers")
-cache_path = cache_path if cache_path.is_absolute() else ("/home/christianfita/NewsFeeder-IA/models/transformers")
+cache_path = Path(_env_cache).expanduser() if _env_cache else ("/home/christianfita/news-scrawler-ai/models/transformers")
+cache_path = cache_path if cache_path.is_absolute() else ("/home/christianfita/news-scrawler-ai/models/transformers")
 cache_path.mkdir(parents=True, exist_ok=True)
 CACHE_DIR = str(cache_path)
 
