@@ -6,6 +6,7 @@ selenium_dw_extract_links.py
 - Purpose: Open DW top-stories page, dismiss cookie modal, extract article links, save CSV/JSON.
 """
 
+import os
 import time
 import re
 from selenium import webdriver
@@ -55,8 +56,27 @@ COOKIE_BUTTON_XPATHS = [
     "//button[contains(@class,'cookie') or contains(@class,'consent') or contains(@class,'accept') or contains(@id,'cookie') or contains(@id,'consent')]",
 ]
 
+def _resolve_chrome_binary():
+    """Return a Chrome/Chromium binary path if the environment provides one."""
+    env_path = os.getenv("CHROME_BINARY")
+    candidates = [
+        env_path,
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+    ]
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            return candidate
+    return None
+
+
 def build_driver(headless=True):
     options = webdriver.ChromeOptions()
+    chrome_binary = _resolve_chrome_binary()
+    if chrome_binary:
+        options.binary_location = chrome_binary
     if headless:
         # use new-headless mode when available
         options.add_argument("--headless=new")
@@ -64,6 +84,8 @@ def build_driver(headless=True):
         options.add_argument("--start-maximized")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--remote-debugging-port=0")
     # optional: mimic regular user agent
     options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36")
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
