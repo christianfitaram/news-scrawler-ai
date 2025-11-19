@@ -69,6 +69,7 @@ def _resolve_chrome_binary():
     if env_path:
         env_path = env_path.strip()
         if os.path.exists(env_path):
+            print(f"[chrome] Using env CHROME_BINARY={env_path}")
             return env_path
 
     candidates = [
@@ -83,6 +84,7 @@ def _resolve_chrome_binary():
     ]
     for candidate in candidates:
         if candidate and os.path.exists(candidate):
+            print(f"[chrome] Using detected browser binary: {candidate}")
             return candidate
 
     raise RuntimeError(
@@ -91,18 +93,36 @@ def _resolve_chrome_binary():
     )
 
 
+
 def _resolve_chromedriver_path():
-    """Return a chromedriver path, enabling offline reuse via an env override."""
+    """Return a chromedriver path, preferring system chromedriver for Chromium."""
+    # 1) Env override (if you ever want custom path)
     env_path = os.getenv(CHROMEDRIVER_ENV)
     if env_path:
         env_path = env_path.strip()
         if os.path.exists(env_path):
+            print(f"[chromedriver] Using env CHROMEDRIVER_PATH={env_path}")
             return env_path
         raise RuntimeError(
             f"{CHROMEDRIVER_ENV} is set to '{env_path}' but the file does not exist."
         )
-    # webdriver-manager caches drivers locally, so calling install is safe
+
+    # 2) Try system chromedriver installed via apt
+    system_candidates = [
+        "/usr/lib/chromium-browser/chromedriver",
+        "/usr/bin/chromedriver",
+        shutil.which("chromedriver"),
+    ]
+    for c in system_candidates:
+        if c and os.path.exists(c):
+            print(f"[chromedriver] Using system chromedriver at: {c}")
+            return c
+
+    # 3) Fallback: webdriver-manager (downloads matching Chrome driver)
+    print("[chromedriver] System chromedriver not found, using webdriver-manager...")
     return ChromeDriverManager().install()
+
+
 
 def build_driver(headless=True):
     options = webdriver.ChromeOptions()
@@ -118,11 +138,17 @@ def build_driver(headless=True):
     options.add_argument("--remote-debugging-port=0")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--single-process")
-    # optional: mimic regular user agent
-    options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36")
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120 Safari/537.36"
+    )
+
     driver_path = _resolve_chromedriver_path()
+    print(f"[driver] Starting Chrome with binary={options.binary_location} "
+          f"and chromedriver={driver_path}")
     driver = webdriver.Chrome(service=Service(driver_path), options=options)
     return driver
+
 
 def try_click(element):
     try:
