@@ -1,0 +1,188 @@
+# pipeline_sample/custom_scrapers.py
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Dict, Iterable, cast
+
+import feedparser
+import requests
+from bs4 import BeautifulSoup
+
+from ingest.crawler_dw import main as crawler_dw
+from ingest.utils import is_urls_processed_already, fetch_and_extract
+from lib.repositories.link_pool_repository import LinkPoolRepository
+
+repo = LinkPoolRepository()
+BLOOMBERG_RSS_FEEDS = {
+    "markets": "https://feeds.bloomberg.com/markets/news.rss",
+    "politics": "https://feeds.bloomberg.com/politics/news.rss",
+    "technology": "https://feeds.bloomberg.com/technology/news.rss",
+    "wealth": "https://feeds.bloomberg.com/wealth/news.rss",
+}
+
+
+def get_title_from_dw_url(url: str) -> str:
+    try:
+        res = requests.get(url, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+        title_tag = soup.find("h1")
+        if title_tag:
+            return title_tag.get_text(strip=True)
+    except Exception as e:
+        print(f"Error fetching title from DW URL {url}: {e}")
+    return "DW Article"
+
+
+def scrape_bbc_stream() -> Iterable[Dict]:
+    """Yield BBC articles. No DB writes, no link_pool checks."""
+    url_bbc = "https://www.bbc.com/news"
+    try:
+        res = requests.get(url_bbc, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+    except Exception as e:
+        print(f"Error scraping BBC homepage: {e}")
+        return
+
+    for link in soup.select("a[href^='/news'] h2"):
+        title = link.get_text(strip=True)
+        parent = link.find_parent("a")
+        href = parent.get("href") if parent else ""
+        full_url = "https://www.bbc.com" + href if href.startswith("/") else href
+        if not full_url:
+            continue
+        if is_urls_processed_already(full_url):
+            continue
+        full_text = fetch_and_extract(full_url)
+        if not full_text:
+            continue
+        repo.insert_link({"url": full_url})
+        yield {
+            "title": title,
+            "url": full_url,
+            "text": full_text,
+            "source": "bbc-news",
+            "scraped_at": datetime.now(timezone.utc),
+        }
+
+
+def scrape_cnn_stream() -> Iterable[Dict]:
+    url_cnn = "https://edition.cnn.com/world"
+    try:
+        res = requests.get(url_cnn, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+    except Exception as e:
+        print(f"Error scraping CNN homepage: {e}")
+        return
+
+    for link in soup.select("a[data-link-type='article']"):
+        href = link.get("href", "")
+        if not href:
+            continue
+        full_url = "https://edition.cnn.com" + href if href.startswith("/") else href
+
+        title_tag = link.select_one(".container__headline-text, [data-editable='headline']")
+        if not title_tag:
+            continue
+        title = title_tag.get_text(strip=True)
+        if is_urls_processed_already(full_url):
+            continue
+        full_text = fetch_and_extract(full_url)
+        if not full_text:
+            continue
+        repo.insert_link({"url": full_url})
+        yield {
+            "title": title,
+            "url": full_url,
+            "text": full_text,
+            "source": "cnn",
+            "scraped_at": datetime.now(timezone.utc),
+        }
+
+
+def scrape_wsj_stream() -> Iterable[Dict]:
+    rss_url = "https://feeds.a.dj.com/rss/RSSWorldNews.xml"
+    try:
+        feed = feedparser.parse(rss_url)
+    except Exception as e:
+        print(f"Error parsing WSJ RSS feed: {e}")
+        return
+
+    for entry in feed.entries:
+        url = entry.get("link")
+        title = entry.get("title", "").strip()
+        summary = entry.get("summary", "").strip()
+        if not url or not title or not summary:
+            continue
+        if is_urls_processed_already(url):
+            continue
+        repo.insert_link({"url": url})
+        yield {
+            "title": title,
+            "url": url,
+            "text": summary,
+            "source": "the-wall-street-journal",
+            "scraped_at": datetime.now(timezone.utc),
+        }
+
+
+def scrape_aljazeera() -> Iterable[Dict]:
+    import feedparser
+    from datetime import datetime, timezone
+    feed = feedparser.parse("https://www.aljazeera.com/xml/rss/all.xml")
+    for e in feed.entries:
+        url = e.get("link")
+        title = (e.get("title") or "").strip()
+        if not url or not title:
+            continue
+        if is_urls_processed_already(url):
+            continue
+        text = fetch_and_extract(url)
+        if not text:
+            continue
+        repo.insert_link({"url": url})
+        yield {
+            "title": title,
+            "url": url,
+            "text": text,
+            "source": "aljazeera",
+            "scraped_at": datetime.now(timezone.utc),
+        }
+
+
+def scrape_dw_stream() -> Iterable[Dict]:
+    # crawler_dw was imported as a function (from crawler_dw import main as crawler_dw)
+    # call it to get the iterable of links. Add defensive checks and logging.
+    try:
+        # call crawler_dw() if it's a function; otherwise use it as provided
+        raw_links = crawler_dw() if callable(crawler_dw) else crawler_dw
+        # help static type checkers by casting to an iterable of strings
+        links_iterable = cast(Iterable[str], raw_links)
+    except Exception as e:
+        print(f"Error running crawler_dw: {e}")
+        return
+
+    if not links_iterable:
+        return
+
+    for link in links_iterable:
+        try:
+            if is_urls_processed_already(link):
+                continue
+            full_text = fetch_and_extract(link)
+            if not full_text:
+                continue
+            title = get_title_from_dw_url(link)
+            try:
+                repo.insert_link({"url": link})
+            except Exception as e:
+                print(f"Warning: failed to insert link into repo: {e}")
+            yield {
+                "title": title,
+                "url": link,
+                "text": full_text,
+                "source": "dw",
+                "scraped_at": datetime.now(timezone.utc),
+            }
+        except Exception as e:
+            print(f"Error processing DW link {link}: {e}")
+            continue
