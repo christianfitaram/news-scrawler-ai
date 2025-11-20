@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 
 from ingest.call_to_webhook import send_to_webhook
+
 load_dotenv()
 from collections import Counter
 from datetime import datetime, timezone
@@ -25,7 +26,8 @@ CACHE_DIR_FROM_ENV = os.getenv('TRANSFORMERS_CACHE')
 # tzinfo constant for UTC
 TZ_UTC = timezone.utc
 
-def generar_uuid4():
+
+def generate_uuid4():
     return str(uuid.uuid4())
 
 
@@ -97,7 +99,8 @@ try:
 except Exception:
     print("Model 1 device: unknown")
 
-print(f"torch version: {torch.__version__}, torch.cuda.is_available: {torch.cuda.is_available()}, torch.version.cuda: {torch.version.cuda}")
+print(
+    f"torch version: {torch.__version__}, torch.cuda.is_available: {torch.cuda.is_available()}, torch.version.cuda: {torch.version.cuda}")
 
 # Create sentiment pipeline robustly; fall back to CPU if GPU pipeline creation fails
 try:
@@ -110,7 +113,8 @@ try:
         truncation=True,
     )
 except Exception as e:
-    print(f"Warning: failed to create sentiment pipeline on device {PIPELINE_DEVICE}: {e}. Falling back to CPU pipeline.")
+    print(
+        f"Warning: failed to create sentiment pipeline on device {PIPELINE_DEVICE}: {e}. Falling back to CPU pipeline.")
     try:
         sentiment_pipeline = pipeline(
             "sentiment-analysis",
@@ -180,7 +184,7 @@ def is_valid_sample(sample: str) -> bool:
 
 
 def classify_articles():
-    id_for_metadata = generar_uuid4()
+    id_for_metadata = generate_uuid4()
     # Initialize counters
     sentiment_counter = Counter()
     topic_counter = Counter()
@@ -236,6 +240,7 @@ def classify_articles():
                 "summary": summary,
                 "text": text_cleaned,
                 "source": article.get("source"),
+                "sample": id_for_metadata,
                 "scraped_at": article.get("scraped_at"),
                 "topic": topic["labels"][0],
                 "isCleaned": False,
@@ -292,7 +297,6 @@ def classify_articles():
     })
 
     return id_for_metadata
-
 
 
 def call_to_gpt_api(prompt: str, timeout: int = 30) -> str:
