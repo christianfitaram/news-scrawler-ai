@@ -4,7 +4,7 @@ import json
 API_KEY = "eyJAdminK3y-2025!zXt9fGHEMPLq4RsVm7DwuJXeb6u"
 
 
-def send_to_webhook(insert_id, webhook_url="http://34.123.220.203/webhook/news"):
+def send_to_webhook(insert_id, webhook_url="https://servicesemantic.newsapi.one/webhook/news"):
     try:
         payload = get_news_data(insert_id)
         if not payload:
@@ -49,7 +49,7 @@ def send_to_webhook(insert_id, webhook_url="http://34.123.220.203/webhook/news")
 
 
 def get_news_data(insert_id, timeout=10):
-    base_url = f"http://34.175.67.140/v1/news/{insert_id}?apiKey={API_KEY}"
+    base_url = f"https://newsapi.one/v1/news/{insert_id}?apiKey={API_KEY}"
     try:
         response = requests.get(base_url, timeout=timeout)
         response.raise_for_status()
