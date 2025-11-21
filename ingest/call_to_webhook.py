@@ -63,8 +63,9 @@ def get_news_data(insert_id, timeout=10):
             "title": data.get("title"),
             "text": data.get("text"),
             "topic": data.get("topic"),
+            "source": data.get("source"),
             "sentiment": data.get("sentiment"),
-            "scraped_at": data.get("scrapedAt"),
+            "scraped_at": data.get("scraped_at"),
         }
         print(data_to_return)
         # Log fetched data summary for debugging
