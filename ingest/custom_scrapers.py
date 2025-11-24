@@ -161,7 +161,12 @@ def scrape_dw_stream() -> Iterable[Dict]:
         print(f"Error running crawler_dw: {e}")
         return
 
+    if links_iterable is None:
+        print("crawler_dw returned None; skipping DW scraping.")
+        return
+
     if not links_iterable:
+        print("crawler_dw returned no links; skipping DW scraping.")
         return
 
     for link in links_iterable:

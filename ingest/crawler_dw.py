@@ -146,8 +146,14 @@ def build_driver(headless=True):
     driver_path = _resolve_chromedriver_path()
     print(f"[driver] Starting Chrome with binary={options.binary_location} "
           f"and chromedriver={driver_path}")
-    driver = webdriver.Chrome(service=Service(driver_path), options=options)
-    return driver
+    try:
+        driver = webdriver.Chrome(service=Service(driver_path), options=options)
+        return driver
+    except Exception as e:
+        # Surface a clear message so systemd logs show why Selenium failed
+        print(f"[driver][error] Failed to start Chrome driver. "
+              f"binary={options.binary_location} chromedriver={driver_path} error={e}")
+        raise
 
 
 def try_click(element):
@@ -268,7 +274,13 @@ def extract_links_from_page(driver):
     return sorted(links)
 
 def main(headless=True):
-    driver = build_driver(headless=headless)
+    try:
+        driver = build_driver(headless=headless)
+    except Exception as e:
+        # If driver cannot start (missing chrome/chromedriver), skip DW to avoid crashing pipeline.
+        print(f"[crawler_dw][fatal] Cannot start Selenium driver: {e}. "
+              f"Set {CHROME_BINARY_ENV} and {CHROMEDRIVER_ENV} or install Chrome/chromedriver.")
+        return []
     try:
         print("[*] opening page:", DW_URL)
         driver.get(DW_URL)
