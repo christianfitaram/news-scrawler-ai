@@ -324,10 +324,10 @@ Text to rewrite:
         data = response.json()
         return data["response"].strip()
     except requests.exceptions.Timeout:
-        print(f"⏰ GPT API timeout after {timeout}s, using original text")
+        print(f"GPT API timeout after {timeout}s, using original text")
         return prompt  # Return original text as fallback
     except requests.exceptions.RequestException as e:
-        print(f"🚫 GPT API error: {e}, using original text")
+        print(f"GPT API error: {e}, using original text")
         return prompt  # Return original text as fallback
 
 def add_one_to_total_articles_in_documents():
