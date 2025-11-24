@@ -11,11 +11,13 @@ from datetime import datetime, timezone
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 import re
+from bson import ObjectId
 from ingest.get_all_articles import get_all_articles
 from ingest.summarizer import smart_summarize
 from lib.repositories.articles_repository import ArticlesRepository
 from lib.repositories.link_pool_repository import LinkPoolRepository
 from lib.repositories.metadata_repository import MetadataRepository
+from lib.repositories.global_metadata_repository import GlobalMetadataRepository
 import requests
 import uuid
 
@@ -40,6 +42,7 @@ _rx = re.compile(_PATTERN)
 repo_articles = ArticlesRepository()
 repo_link_pool = LinkPoolRepository()
 repo_metadata = MetadataRepository()
+repo_global_metadata = GlobalMetadataRepository()
 
 # Define your candidate labels (topics)
 CANDIDATE_TOPICS = [
@@ -299,7 +302,7 @@ def classify_articles():
     return id_for_metadata
 
 
-def call_to_gpt_api(prompt: str, timeout: int = 30) -> str:
+def call_to_gpt_api(prompt: str, timeout: int = 60) -> str:
     prompt_final = """You are a professional text cleaner.
 Your task:
 - Remove any reference to news outlets, authors, publication names, URLs, or web layout artifacts.
@@ -327,6 +330,12 @@ Text to rewrite:
         print(f"🚫 GPT API error: {e}, using original text")
         return prompt  # Return original text as fallback
 
+def add_one_to_total_articles_in_documents():
+    selector = {"_id": ObjectId("6923b800f3d19f7c28f53a6d")}
+    update_data = {"$inc": {"total_articles": 1}}
+    repo_global_metadata.update_metadata(selector, update_data)
+    total_articles = repo_articles.count_articles({})
+    print(f"Total documents in the database: {total_articles}")
 
 if __name__ == "__main__":
     classify_articles()
