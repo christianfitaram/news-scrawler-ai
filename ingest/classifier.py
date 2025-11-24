@@ -262,7 +262,7 @@ def classify_articles():
             # inserting data into mongoDB
             insert_id = repo_articles.create_articles(classified_article)
             send_to_webhook(insert_id)
-
+            add_one_to_total_articles_in_documents()
             repo_link_pool.update_link_in_pool({"url": article.get("url")},
                                                {"$set": {"is_articles_processed": True, "sample": id_for_metadata}})
 
