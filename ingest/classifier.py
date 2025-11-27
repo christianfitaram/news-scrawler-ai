@@ -3,7 +3,7 @@ import os
 
 from dotenv import load_dotenv
 
-from ingest.call_to_webhook import send_to_webhook
+from ingest.call_to_webhook import send_to_all_webhooks
 
 load_dotenv()
 from collections import Counter
@@ -261,7 +261,7 @@ def classify_articles():
 
             # inserting data into mongoDB
             insert_id = repo_articles.create_articles(classified_article)
-            send_to_webhook(insert_id)
+            send_to_all_webhooks(insert_id)
             add_one_to_total_articles_in_documents()
             add_one_to_topic_data_in_documents(topic_label)
             repo_link_pool.update_link_in_pool({"url": article.get("url")},
