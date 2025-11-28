@@ -3,7 +3,7 @@ import os
 
 from dotenv import load_dotenv
 
-from ingest.call_to_webhook import send_to_webhook
+# from ingest.call_to_webhook import send_to_webhook
 
 load_dotenv()
 from collections import Counter
@@ -261,7 +261,7 @@ def classify_articles():
 
             # inserting data into mongoDB
             insert_id = repo_articles.create_articles(classified_article)
-            send_to_webhook(insert_id)
+            # send_to_webhook(insert_id)
             add_one_to_total_articles_in_documents()
             add_one_to_topic_data_in_documents(topic_label)
             repo_link_pool.update_link_in_pool({"url": article.get("url")},
@@ -304,31 +304,7 @@ def classify_articles():
 
 
 def call_to_gpt_api(prompt: str, timeout: int = 60) -> str:
-    prompt_final = """You are a professional text cleaner.
-Your task:
-- Remove any reference to news outlets, authors, publication names, URLs, or web layout artifacts.
-- Discard malformed, incomplete, or irrelevant fragments.
-- Do not include explanations, comments, or formatting — only return the clean text.
-Text to rewrite:
-""" + prompt
-
-    api_url = "http://localhost:11434/api/generate"
-
-    payload = {
-        "model": "gpt-oss:20b",
-        "prompt": prompt_final,
-        "stream": False
-    }
-
-    try:
-        response = requests.post(api_url, json=payload, timeout=timeout)
-        data = response.json()
-        return data["response"].strip()
-    except requests.exceptions.Timeout:
-        print(f"GPT API timeout after {timeout}s, using original text")
-        return prompt  # Return original text as fallback
-    except requests.exceptions.RequestException as e:
-        print(f"GPT API error: {e}, using original text")
+    
         return prompt  # Return original text as fallback
 
 def add_one_to_total_articles_in_documents():

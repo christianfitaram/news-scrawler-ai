@@ -7,7 +7,7 @@ from typing import Dict, Iterable, cast
 import feedparser
 import requests
 from bs4 import BeautifulSoup
-
+import re
 from ingest.crawler_dw import main as crawler_dw
 from ingest.utils import is_urls_processed_already, fetch_and_extract
 from lib.repositories.link_pool_repository import LinkPoolRepository
@@ -19,6 +19,56 @@ BLOOMBERG_RSS_FEEDS = {
     "technology": "https://feeds.bloomberg.com/technology/news.rss",
     "wealth": "https://feeds.bloomberg.com/wealth/news.rss",
 }
+
+
+
+LANACION_BASE_URL = "https://www.lanacion.com.ar/ultimas-noticias/"
+LANACION_ARTICLE_RE = re.compile(
+    r"^https?://(www\.)?lanacion\.com\.ar/.+-nid\d+/?$"
+)
+
+def scrape_lanacion_stream() -> Iterable[Dict]:
+    try:
+        res = requests.get(LANACION_BASE_URL, timeout=10)
+        res.raise_for_status()
+        soup = BeautifulSoup(res.text, "html.parser")
+    except Exception as e:
+        print(f"[la-nacion] Error scraping homepage: {e}")
+        return
+
+    seen_urls = set()
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+
+        # Normalizamos URLs relativas
+        if href.startswith("/"):
+            href = "https://www.lanacion.com.ar" + href
+
+        # Nos quedamos solo con URLs que encajan con el patrón de artículo (acabado en nnddyyyy)
+        if not LANACION_ARTICLE_RE.match(href):
+            continue
+
+        # Evitar duplicados en el propio scrapper
+        if href in seen_urls:
+            continue
+        seen_urls.add(href)
+        title = a.get_text(strip=True)
+        if not title:
+            continue
+        if is_urls_processed_already(href):
+            continue
+        full_text = fetch_and_extract(href)
+        if not full_text:
+            continue
+        repo.insert_link({"url": href})
+        yield {
+            "title": title,
+            "url": href,
+            "text": full_text,
+            "source": "la-nacion-ar",
+            "scraped_at": datetime.now(timezone.utc),
+        }
 
 
 def get_title_from_dw_url(url: str) -> str:
